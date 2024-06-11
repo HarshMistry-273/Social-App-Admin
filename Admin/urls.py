@@ -7,6 +7,7 @@ router.register(r'users', Users)
 router.register(r'posts', Posts)
 router.register(r'comments', Comments)
 router.register(r'likes', Likes)
+router.register(r'follows', Follows)
 
 urlpatterns = [
     path('stats/', Analytics.as_view(), name='root'),

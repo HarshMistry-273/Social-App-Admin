@@ -27,8 +27,8 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class FollowSerializer(serializers.ModelSerializer):
-    follower = User.objects.filter(is_staff=False)
-    following = User.objects.filter(is_staff=False)
+    follower = serializers.PrimaryKeyRelatedField(queryset = User.objects.filter(is_staff=False) )
+    following = serializers.PrimaryKeyRelatedField(queryset = User.objects.filter(is_staff=False) )
     class Meta:
         model = Follow
         fields = '__all__'

@@ -11,8 +11,8 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
-from .models import User, Post, Like, Comment
-from .serializers import UserSerializer, PostSerializer, LikeSerializer, CommentSerializer, TokenSerializer
+from .models import User, Post, Like, Comment, Follow
+from .serializers import UserSerializer, PostSerializer, LikeSerializer, CommentSerializer, FollowSerializer,TokenSerializer
 from .utils import generate_token
 
 class Analytics(APIView):
@@ -51,7 +51,7 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
     serializer_class = UserSerializer
     queryset = User.objects.filter(is_staff = False).order_by('id')
     pagination_class = DefPagination
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    # permission_classes = [IsAuthenticated, IsAdminUser]
 
 
     def list(self, request):
@@ -61,7 +61,11 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
             if page is not None:
                 data = []
                 for user in page:
-                    user_data = UserSerializer(user)
+                    user_data = UserSerializer(user).data
+                    followers = Follow.objects.filter(follower = user).count()
+                    following = Follow.objects.filter(following = user).count()
+                    user_data["followers"] = following
+                    user_data["following"] = followers
                     posts = Post.objects.filter(user=user)
                     posts_data=[]
                     for post in posts:
@@ -74,7 +78,7 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
                     
 
                     data.append({
-                        'USER': user_data.data,
+                        'USER': user_data,
                         'POSTS': posts_data
                     })
 
@@ -85,6 +89,7 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
             for user in users:
                     user_data = UserSerializer(user)
                     posts = Post.objects.filter(user=user)
+                    
                     posts_data=[]
                     for post in posts:
                         post_data = PostSerializer(post).data
@@ -143,7 +148,6 @@ class Posts(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
             for post in page:
                 like_cnt = Like.objects.filter(post=post).count()
                 comment_cnt = Comment.objects.filter(post=post).count()
-
                 post_data = PostSerializer(post).data
                 post_data['likes'] = like_cnt 
                 post_data['comments'] = comment_cnt
@@ -256,17 +260,28 @@ def login(request):
         'token': serialized_token
     })
 
+class Follows(viewsets.ModelViewSet):
+    serializer_class = FollowSerializer
+    queryset = Follow.objects.all()
+
+
 class ExportUsers(APIView):
     def get(self, request):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many = True)
+        try:
+            users = User.objects.all()
+            serializer = UserSerializer(users, many = True)
 
-        csv_data = "username,email,firstname,lastname,last_login\n"
-        for user in users:
-            csv_data+= f"{user.username},{user.email},{user.first_name},{user.last_name},{user.last_login}\n"
+            csv_data = "username,email,firstname,lastname,last_login\n"
+            for user in users:
+                csv_data+= f"{user.username},{user.email},{user.first_name},{user.last_name},{user.last_login}\n"
+            
+            response = HttpResponse(csv_data, content_type = 'text/csv')
+            response["Content-Disposition"] = 'attachment; filename="users.csv"'
+            return response
         
-        response = HttpResponse(csv_data, content_type = 'text/csv')
-        response["Content-Disposition"] = 'attachment; filename="users.csv"'
-        return response
-    
+        except Exception as e:
+             return Response({
+            'ERROR': 'REQUEST NOT EXECUTED',
+            'DETAIL': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
