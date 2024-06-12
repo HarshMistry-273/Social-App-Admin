@@ -2,14 +2,14 @@ from rest_framework import serializers
 from .models import User, Post, Like, Comment, Follow
 from rest_framework.authtoken.models import Token
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.HyperlinkedModelSerializer):
     user = User.objects.filter(is_staff=False)
     class Meta:
         model = User
         exclude = ['is_superuser', 'is_staff', 'groups', 'user_permissions']
 
-class PostSerializer(serializers.ModelSerializer):
-    user = User.objects.filter(is_staff=False)
+class PostSerializer(serializers.HyperlinkedModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset = User.objects.filter(is_staff=False) )
     class Meta:
         model = Post
         fields = '__all__'

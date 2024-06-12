@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework import views
 from rest_framework import viewsets
 from django.contrib.auth import authenticate
+from django.db.models import Prefetch
 from django.http import JsonResponse, HttpResponse
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, action
@@ -56,114 +57,71 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
 
     def list(self, request):
         try:
-            users = self.filter_queryset(self.get_queryset())
+            users = self.filter_queryset(self.get_queryset()).prefetch_related(
+                Prefetch('follower', queryset=Follow.objects.all(), to_attr='followers_list'),
+                Prefetch('following', queryset=Follow.objects.all(), to_attr='following_list'),
+                Prefetch('posts', queryset=Post.objects.prefetch_related(
+                    Prefetch('liked_post', queryset=Like.objects.all(), to_attr='likes_list'),
+                    Prefetch('comment_post', queryset=Comment.objects.all(), to_attr='comments_list')
+                ), to_attr='posts_list')
+            )
+
             page = self.paginate_queryset(users)
             if page is not None:
                 data = []
                 for user in page:
-                    user_data = UserSerializer(user).data
-                    followers = Follow.objects.filter(follower = user).count()
-                    following = Follow.objects.filter(following = user).count()
-                    user_data["followers"] = following
-                    user_data["following"] = followers
-                    posts = Post.objects.filter(user=user)
-                    posts_data=[]
-                    for post in posts:
-                        post_data = PostSerializer(post).data
-                        like_cnt = Like.objects.filter(post=post).count()
-                        comment_cnt = Comment.objects.filter(post=post).count()
-                        post_data["likes"] = like_cnt
-                        post_data["comments"] = comment_cnt
+                    user_data = UserSerializer(user, context={'request': request}).data
+                    user_data["followers"] = len(user.followers_list)
+                    user_data["following"] = len(user.following_list)
+
+                    posts_data = []
+                    for post in user.posts_list:
+                        post_data = PostSerializer(post ,context={'request': request}).data
+                        post_data["likes"] = len(post.likes_list)
+                        post_data["comments"] = len(post.comments_list)
                         posts_data.append(post_data)
-                    
 
                     data.append({
                         'USER': user_data,
                         'POSTS': posts_data
                     })
 
-
                 return self.get_paginated_response(data)
-            
-            data = []
-            for user in users:
-                    user_data = UserSerializer(user)
-                    posts = Post.objects.filter(user=user)
-                    
-                    posts_data=[]
-                    for post in posts:
-                        post_data = PostSerializer(post).data
-                        like_cnt = Like.objects.filter(post=post).count()
-                        comment_cnt = Comment.objects.filter(post=post).count()
-                        post_data["likes"] = like_cnt
-                        post_data["comments"] = comment_cnt
-                        posts_data.append(post_data)
-                    
-
-                    data.append({
-                        'USER': user_data.data,
-                        'POSTS': posts_data
-                    })
-
-
-            return Response({
-                    'DATA': data
-                }, status=status.HTTP_200_OK)    
-    
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({
-            'ERROR': 'REQUEST NOT EXECUTED',
-            'DETAIL': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-class Posts(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin):
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+       
+class Posts(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin, generics.mixins.DestroyModelMixin):
+
     serializer_class = PostSerializer
     queryset = Post.objects.all().order_by('id')
     pagination_class = DefPagination
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    # permission_classes = [IsAuthenticated, IsAdminUser]
 
     def list(self, request):
         try:
-            posts = self.filter_queryset(self.get_queryset())
+            posts = self.filter_queryset(self.get_queryset()).prefetch_related(
+                Prefetch('liked_post', queryset=Like.objects.all(), to_attr='likes_list'),
+                Prefetch('comment_post', queryset=Comment.objects.all(), to_attr='comments_list')
+            )
+
             page = self.paginate_queryset(posts)
-            
+
             if page is not None:
                 data = []
-                post_data = []
                 for post in page:
-                    like_cnt = Like.objects.filter(post=post).count()
-                    comment_cnt = Comment.objects.filter(post=post).count()
+                    post_data = PostSerializer(post, context={'request': request}).data                
+                    post_data["likes"] = len(post.likes_list)
+                    post_data["comments"] = CommentSerializer(post.comments_list, many=True).data
 
-                    post_data = PostSerializer(post).data
-                    post_data['likes'] = like_cnt 
-                    post_data['comments'] = comment_cnt
-
-
-                    data.append(post_data) 
-
+                    data.append(post_data)
                 return self.get_paginated_response(data)
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
             
-            data = []
-            post_data = []
-            for post in page:
-                like_cnt = Like.objects.filter(post=post).count()
-                comment_cnt = Comment.objects.filter(post=post).count()
-                post_data = PostSerializer(post).data
-                post_data['likes'] = like_cnt 
-                post_data['comments'] = comment_cnt
-
-
-                data.append(post_data) 
-
-            return Response({
-                'POSTS': data
-            }, status=status.HTTP_200_OK)
-        
         except Exception as e:
-            return Response({
-            'ERROR': 'REQUEST NOT EXECUTED',
-            'DETAIL': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class Comments(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin, generics.mixins.DestroyModelMixin):
 
@@ -230,40 +188,9 @@ def custom_404_handler(request, exception = None):
         'MESSAGE': 'Resource not found!'
     })
 
-@api_view(['POST'])
-def login(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
-
-    if username is None or password is None:
-        return Response({
-            'msg': "Data can't blank" 
-        })
-    
-    user = authenticate(request,username=username, password=password)
-    if user is None:
-        return Response({
-            'msg': 'Invalid Creds'
-        })
-    
-    token, created = Token.objects.get_or_create(user=user)
-
-    token_serializer = TokenSerializer(token)
-    serialized_token = token_serializer.data
-    serializer = TokenSerializer(token)
-    if token is None:
-                return Response({
-            'msg': 'Failed to create Token'
-        })
-    
-    return Response({
-        'token': serialized_token
-    })
-
-class Follows(viewsets.ModelViewSet):
+class Follows(viewsets.GenericViewSet, generics.mixins.CreateModelMixin):
     serializer_class = FollowSerializer
     queryset = Follow.objects.all()
-
 
 class ExportUsers(APIView):
     def get(self, request):
@@ -285,3 +212,44 @@ class ExportUsers(APIView):
             'DETAIL': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+
+
+
+
+
+
+
+
+
+
+
+
+# @api_view(['POST'])
+# def login(request):
+#     username = request.data.get("username")
+#     password = request.data.get("password")
+
+#     if username is None or password is None:
+#         return Response({
+#             'msg': "Data can't blank" 
+#         })
+    
+#     user = authenticate(request,username=username, password=password)
+#     if user is None:
+#         return Response({
+#             'msg': 'Invalid Creds'
+#         })
+    
+#     token, created = Token.objects.get_or_create(user=user)
+
+#     token_serializer = TokenSerializer(token)
+#     serialized_token = token_serializer.data
+#     serializer = TokenSerializer(token)
+#     if token is None:
+#                 return Response({
+#             'msg': 'Failed to create Token'
+#         })
+    
+#     return Response({
+#         'token': serialized_token
+#     })
