@@ -4,13 +4,12 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from Admin.models import Comment
-from Admin.serializers import CommentSerializer
+from Admin.Serializers import comment_serializer
 from Admin.utils import DefPagination
-
 
 class Comments(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin, generics.mixins.DestroyModelMixin):
 
-    serializer_class = CommentSerializer
+    serializer_class = comment_serializer.CommentSerializer
     queryset = Comment.objects.all()
     pagination_class = DefPagination
     # permission_classes = [IsAuthenticated, IsAdminUser]

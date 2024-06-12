@@ -1,8 +1,8 @@
 from rest_framework import generics
 from rest_framework import viewsets
 from Admin.models import Follow
-from Admin.serializers import FollowSerializer
+from Admin.Serializers import follow_serializer
 
 class Follows(viewsets.GenericViewSet, generics.mixins.CreateModelMixin):
-    serializer_class = FollowSerializer
+    serializer_class = follow_serializer.FollowSerializer
     queryset = Follow.objects.all()

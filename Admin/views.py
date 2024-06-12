@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 from .models import User, Post, Like, Comment
-from .serializers import UserSerializer
+from .Serializers import user_serializer
 
 class Analytics(APIView):
 
@@ -75,7 +75,7 @@ class ExportUsers(APIView):
     def get(self, request):
         try:
             users = User.objects.all()
-            serializer = UserSerializer(users, many = True)
+            serializer = user_serializer.UserSerializer(users, many = True)
 
             csv_data = "username,email,firstname,lastname,last_login\n"
             for user in users:
@@ -98,6 +98,15 @@ def custom_404_handler(request, exception = None):
     })
 
 # -----------TOKEN AUTH-----------------------------------------------------
+
+
+# TOKEN-SERIALIZER
+# class TokenSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Token    
+#         fields = ('key',)
+
+# TOKEN-VIEW
 # @api_view(['POST'])
 # def login(request):
 #     username = request.data.get("username")

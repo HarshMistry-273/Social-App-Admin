@@ -4,12 +4,12 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from django.db.models import Prefetch
 from Admin.models import Post, Like, Comment
-from Admin.serializers import PostSerializer, CommentSerializer
+from Admin.Serializers import post_serializer, comment_serializer
 from Admin.utils import DefPagination
 
 class Posts(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin, generics.mixins.DestroyModelMixin):
 
-    serializer_class = PostSerializer
+    serializer_class = post_serializer.PostSerializer
     queryset = Post.objects.all().order_by('id')
     pagination_class = DefPagination
     # permission_classes = [IsAuthenticated, IsAdminUser]
@@ -26,9 +26,9 @@ class Posts(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
             if page is not None:
                 data = []
                 for post in page:
-                    post_data = PostSerializer(post, context={'request': request}).data                
+                    post_data = post_serializer.PostSerializer(post, context={'request': request}).data                
                     post_data["likes"] = len(post.likes_list)
-                    post_data["comments"] = CommentSerializer(post.comments_list, many=True,  context={'request': request}).data
+                    post_data["comments"] = comment_serializer.CommentSerializer(post.comments_list, many=True,  context={'request': request}).data
 
                     data.append(post_data)
                 return self.get_paginated_response(data)

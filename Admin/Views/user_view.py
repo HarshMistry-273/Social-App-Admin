@@ -4,12 +4,12 @@ from rest_framework import viewsets
 from django.db.models import Prefetch
 from rest_framework.response import Response
 from Admin.models import User, Post, Like, Comment, Follow
-from Admin.serializers import UserSerializer, PostSerializer
+from Admin.Serializers import post_serializer, user_serializer
 from Admin.utils import DefPagination
 
 class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mixins.RetrieveModelMixin, generics.mixins.UpdateModelMixin, generics.mixins.DestroyModelMixin):
 
-    serializer_class = UserSerializer
+    serializer_class = user_serializer.UserSerializer
     queryset = User.objects.filter(is_staff = False).order_by('id')
     pagination_class = DefPagination
     # permission_classes = [IsAuthenticated, IsAdminUser]
@@ -29,13 +29,13 @@ class Users(viewsets.GenericViewSet, generics.mixins.ListModelMixin, generics.mi
             if page is not None:
                 data = []
                 for user in page:
-                    user_data = UserSerializer(user, context={'request': request}).data
+                    user_data = user_serializer.UserSerializer(user, context={'request': request}).data
                     user_data["followers"] = len(user.followers_list)
                     user_data["following"] = len(user.following_list)
 
                     posts_data = []
                     for post in user.posts_list:
-                        post_data = PostSerializer(post ,context={'request': request}).data
+                        post_data = post_serializer.PostSerializer(post ,context={'request': request}).data
                         post_data["likes"] = len(post.likes_list)
                         post_data["comments"] = len(post.comments_list)
                         posts_data.append(post_data)
