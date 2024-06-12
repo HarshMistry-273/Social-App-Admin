@@ -7,6 +7,9 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.username
+
 class Post(models.Model):
     user = models.ForeignKey(User, related_name='posts' ,on_delete=models.CASCADE)
     image = models.ImageField(upload_to='posts', blank=True, null=True)
@@ -21,6 +24,7 @@ class Like(models.Model):
     post = models.ForeignKey(Post, related_name='liked_post', on_delete=models.CASCADE)
     liked_at = models.DateTimeField(auto_now_add=True)
 
+
 class Comment(models.Model):
     comment_user = models.ForeignKey(User, related_name='comment_user', on_delete=models.CASCADE)
     post = models.ForeignKey(Post, related_name='comment_post', on_delete=models.CASCADE)
@@ -28,6 +32,8 @@ class Comment(models.Model):
     commented_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_flagged = models.BooleanField(default=False)
+    def __str__(self):
+        return self.content
 
 class Follow(models.Model):
     follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
